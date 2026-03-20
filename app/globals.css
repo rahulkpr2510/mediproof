@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #020617;
+  --foreground: #e5e7eb;
 }
 
 @theme inline {
@@ -12,15 +12,65 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+.card {
+  @apply rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-sm;
+}
+
+.card-muted {
+  @apply rounded-xl border border-zinc-800/70 bg-zinc-900/40 p-3;
+}
+
+.pill {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+}
+
+.pill-green {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/40;
+}
+
+.pill-amber {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/40;
+}
+
+.pill-red {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/40;
+}
+
+.page-shell {
+  @apply mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6 lg:px-8;
+}
+
+.page-grid {
+  @apply grid gap-4 md:grid-cols-[2fr,1.2fr];
+}
+
+/* Add after existing styles */
+
+.section-header {
+  @apply flex flex-col gap-1 mb-4;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-md bg-zinc-100 px-3 py-2 text-xs font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-200 disabled:opacity-60;
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-md border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800;
+}
+
+.input {
+  @apply w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500;
+}
+
+.table-wrapper {
+  @apply overflow-hidden rounded-lg border border-zinc-800/80 bg-zinc-950/40;
+}
+
+.table-head {
+  @apply bg-zinc-950/80 text-[11px] uppercase tracking-wide text-zinc-500;
 }
