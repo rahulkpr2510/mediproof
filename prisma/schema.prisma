@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+
+
+enum RoleType {
+  NONE
+  ADMIN
+  MANUFACTURER
+  DISTRIBUTOR
+  PHARMACY
+}
+
+enum BatchStatus {
+  ACTIVE
+  RECALLED
+  EXPIRED
+  SUSPICIOUS
+}
+
+enum ShipmentStatus {
+  REQUESTED
+  APPROVED
+  DISPATCHED
+  DELIVERED
+}
+
+enum SupplyEventType {
+  MANUFACTURED
+  DISTRIBUTOR_RECEIVED
+  PHARMACY_RECEIVED
+  SOLD
+}
+
+enum ActorType {
+  PUBLIC
+  MANUFACTURER
+  DISTRIBUTOR
+  PHARMACY
+  ADMIN
+}
+
+enum VerificationResult {
+  GREEN
+  AMBER
+  RED
+}
+
+enum AnomalyType {
+  GEO
+  DUPLICATE
+  PRE_SALE
+  DEVICE
+  SHIPMENT_MISMATCH
+  UNAUTHORIZED
+}
+
+enum SeverityLevel {
+  INFO
+  WARN
+  CRITICAL
+}
+
+model RoleAssignment {
+  id        String   @id @default(cuid())
+  wallet    String   @unique @db.VarChar(64)
+  role      RoleType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+model AuthNonce {
+  id         String   @id @default(cuid())
+  wallet     String   @unique @db.VarChar(64)
+  nonce      String
+  message    String
+  issuedAt   DateTime
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model Batch {
+  batchId          String      @id
+  medicineName     String
+  manufacturer     String      @db.VarChar(64)
+  manufactureDate  DateTime
+  expiryDate       DateTime
+  totalQuantity    Int
+  status           BatchStatus @default(ACTIVE)
+  blockchainAnchor String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  units      Unit[]
+  shipments  Shipment[]
+  scanLogs   ScanLog[]
+  finalSales FinalSale[]
+
+  @@index([manufacturer])
+  @@index([status])
+}
+
+model Unit {
+  unitId          String    @id
+  batchId         String
+  serialNumber    Int
+  secretReference String
+  checksum        String
+  qrNonceHash     String?
+  status          String    @default("ACTIVE")   // ← add this
+  createdAt       DateTime  @default(now())
+  soldAt          DateTime?
+
+  batch        Batch         @relation(fields: [batchId], references: [batchId])
+  scanLogs     ScanLog[]
+  anomalies    AnomalyEvent[]
+  supplyEvents SupplyEvent[]
+  finalSales   FinalSale[]
+
+  @@unique([batchId, serialNumber])
+  @@index([batchId])
+}
+
+
+model Shipment {
+  shipmentId       String    @id
+  batchId          String
+  senderWallet     String
+  receiverWallet   String
+  unitStart        Int
+  unitEnd          Int
+  quantity         Int
+  status           String    @default("REQUESTED")
+  blockchainAnchor String?
+  requestedAt      DateTime  @default(now())
+  approvedAt       DateTime?
+  dispatchedAt     DateTime?
+  deliveredAt      DateTime?
+
+  batch            Batch          @relation(fields: [batchId], references: [batchId])
+  coldChainLogs    ColdChainLog[]
+}
+
+model SupplyEvent {
+  id                String          @id @default(cuid())
+  unitId            String
+  shipmentId        String?
+  eventType         SupplyEventType
+  actorWallet       String          @db.VarChar(64)
+  timestamp         DateTime        @default(now())
+  locationHash      String?
+  senderConfirmed   Boolean         @default(false)
+  receiverConfirmed Boolean         @default(false)
+  blockchainAnchor  String?
+
+  unit Unit @relation(fields: [unitId], references: [unitId])
+
+  @@index([unitId])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+model ScanLog {
+  id                String             @id @default(cuid())
+  unitId            String
+  batchId           String
+  timestamp         DateTime           @default(now())
+  lat               Float?
+  lng               Float?
+  deviceFingerprint String?
+  ip                String?
+  actorType         ActorType
+  actorWallet       String?
+  result            VerificationResult
+  reasoning         Json?
+
+  unit  Unit  @relation(fields: [unitId], references: [unitId])
+  batch Batch @relation(fields: [batchId], references: [batchId])
+
+  @@index([unitId])
+  @@index([batchId])
+  @@index([timestamp])
+}
+
+model AnomalyEvent {
+  id         String        @id @default(cuid())
+  unitId     String
+  type       AnomalyType
+  severity   SeverityLevel
+  details    Json
+  detectedAt DateTime      @default(now())
+
+  unit Unit @relation(fields: [unitId], references: [unitId])
+
+  @@index([unitId])
+  @@index([type])
+  @@index([detectedAt])
+}
+
+model ColdChainLog {
+  id          String   @id @default(cuid())
+  shipmentId  String
+  temperature Float
+  timestamp   DateTime @default(now())
+  location    String?
+  safe        Boolean
+
+  shipment Shipment @relation(fields: [shipmentId], references: [shipmentId])
+
+  @@index([shipmentId])
+  @@index([timestamp])
+}
+
+model FinalSale {
+  id                 String   @id @default(cuid())
+  unitId             String
+  batchId            String
+  pharmacyWallet     String   @db.VarChar(64)
+  buyerWallet        String   @db.VarChar(64)
+  pharmacySignature  String
+  buyerSignature     String
+  timestamp          DateTime @default(now())
+  blockchainAnchor   String?
+
+  unit  Unit  @relation(fields: [unitId], references: [unitId])
+  batch Batch @relation(fields: [batchId], references: [batchId])
+
+  @@index([unitId])
+  @@index([pharmacyWallet])
+  @@index([buyerWallet])
+}
+
+model ManufacturerReputationSnapshot {
+  id               String   @id @default(cuid())
+  manufacturer     String   @db.VarChar(64)
+  score            Float
+  breakdown        Json
+  anomalyRate      Float
+  successfulRate   Float
+  computedAt       DateTime @default(now())
+
+  @@index([manufacturer])
+  @@index([computedAt])
+}
