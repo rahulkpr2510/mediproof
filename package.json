@@ -6,21 +6,41 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "bootstrap:roles": "node scripts/bootstrap.mjs",
+    "flow:test": "node scripts/full-flow.mjs",
+    "hardhat:compile": "hardhat compile",
+    "hardhat:deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
+    "hardhat:deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
   },
   "dependencies": {
+    "@prisma/client": "^6.7.0",
+    "@zxing/library": "^0.21.3",
+    "ethers": "^6.16.0",
+    "jsonwebtoken": "^9.0.3",
     "next": "16.2.0",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^16.4.7",
     "eslint": "^9",
     "eslint-config-next": "16.2.0",
+    "hardhat": "^2.24.1",
+    "prisma": "^6.7.0",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   },
   "ignoreScripts": [
