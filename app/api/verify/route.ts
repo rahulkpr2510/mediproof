@@ -8,6 +8,7 @@ const HASH_64_RE = /^0x[a-f0-9]{64}$/i;
 const CHECKSUM_RE = /^0x[a-f0-9]{16}$/i;
 const WALLET_RE = /^0x[a-f0-9]{40}$/i;
 const SAFE_TOKEN_RE = /^[a-zA-Z0-9._:-]+$/;
+const SAFE_DEVICE_FINGERPRINT_RE = /^[a-zA-Z0-9 .,:;()/_-]+$/;
 
 const schema = z.object({
   unitId: z.string().trim().regex(HASH_64_RE, "invalid unitId format"),
@@ -42,7 +43,7 @@ const schema = z.object({
     .string()
     .trim()
     .max(128)
-    .regex(SAFE_TOKEN_RE, "invalid deviceFingerprint format")
+    .regex(SAFE_DEVICE_FINGERPRINT_RE, "invalid deviceFingerprint format")
     .optional(),
 });
 
