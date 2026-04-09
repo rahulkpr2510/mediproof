@@ -20,29 +20,34 @@ export async function getManufacturerReputation(manufacturer: string) {
 }
 
 export async function computeManufacturerReputation(manufacturer: string) {
-  const [batches, anomalies, deliveries] = await Promise.all([
-    prisma.batch.findMany({ where: { manufacturer } }),
-    prisma.anomalyEvent.findMany({
-      where: { unit: { batch: { manufacturer } } },
-    }),
-    prisma.shipment.count({
-      where: { batch: { manufacturer }, status: "DELIVERED" },
-    }),
-  ]);
+  const [batches, anomalies, deliveredShipments, totalShipments] =
+    await Promise.all([
+      prisma.batch.findMany({ where: { manufacturer } }),
+      prisma.anomalyEvent.findMany({
+        where: { unit: { batch: { manufacturer } } },
+      }),
+      prisma.shipment.count({
+        where: { batch: { manufacturer }, status: "DELIVERED" },
+      }),
+      prisma.shipment.count({ where: { batch: { manufacturer } } }),
+    ]);
 
   const batchCount = Math.max(1, batches.length);
-  const recallCount = batches.filter((b) => b.status === "RECALLED").length;
+  const recallCount = batches.filter(
+    (b: { status: string }) => b.status === "RECALLED",
+  ).length;
   const suspiciousCount = batches.filter(
-    (b) => b.status === "SUSPICIOUS",
+    (b: { status: string }) => b.status === "SUSPICIOUS",
   ).length;
   const expiryFailureCount = batches.filter(
-    (b) => b.status === "EXPIRED",
+    (b: { status: string }) => b.status === "EXPIRED",
   ).length;
   const criticalAnomalies = anomalies.filter(
-    (a) => a.severity === "CRITICAL",
+    (a: { severity: string }) => a.severity === "CRITICAL",
   ).length;
   const anomalyRate = anomalies.length / batchCount;
-  const successfulRate = deliveries / batchCount;
+  const shipmentBase = Math.max(1, totalShipments);
+  const successfulRate = deliveredShipments / shipmentBase;
 
   const score = clamp(
     100 -
@@ -83,7 +88,7 @@ export async function computeManufacturerReputation(manufacturer: string) {
       label: "Delivery reliability",
       score: clamp(successfulRate * 100),
       weight: 0.1,
-      explanation: `${deliveries} confirmed deliveries across ${batchCount} batches`,
+      explanation: `${deliveredShipments} delivered shipments across ${totalShipments} total shipments`,
     },
   ];
 
