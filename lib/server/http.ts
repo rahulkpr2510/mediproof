@@ -13,7 +13,8 @@ export function getActorWallet(req: NextRequest) {
   const raw = (req.headers.get("x-wallet-address") || "").trim();
   if (!raw) return null;
   try {
-    return normalizeAddress(raw);
+    const normalized = normalizeAddress(raw);
+    return /^0x[a-f0-9]{40}$/i.test(normalized) ? normalized : null;
   } catch {
     return null;
   }

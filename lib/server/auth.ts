@@ -30,10 +30,15 @@ type AuthNonceDelegate = {
       expiresAt: { gt: Date };
     };
   }) => Promise<{ message: string } | null>;
-  update: (args: {
-    where: { wallet: string };
+  updateMany: (args: {
+    where: {
+      wallet: string;
+      nonce: string;
+      consumedAt: null;
+      expiresAt: { gt: Date };
+    };
     data: { consumedAt: Date };
-  }) => Promise<unknown>;
+  }) => Promise<{ count: number }>;
 };
 
 const authNonce = (prisma as unknown as { authNonce: AuthNonceDelegate })
@@ -106,10 +111,19 @@ export async function consumeWalletNonce(wallet: string, nonce: string) {
 
   if (!row) return null;
 
-  await authNonce.update({
-    where: { wallet: normalized },
+  // Mark only this exact nonce as consumed.
+  // This avoids racing with a newer nonce issued for the same wallet.
+  const consumed = await authNonce.updateMany({
+    where: {
+      wallet: normalized,
+      nonce,
+      consumedAt: null,
+      expiresAt: { gt: now },
+    },
     data: { consumedAt: now },
   });
+
+  if (consumed.count !== 1) return null;
 
   return row;
 }
