@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "./components/wallet/WalletProvider";
 import { AppShell } from "./components/layout/AppShell";
@@ -14,9 +14,23 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+});
+
 export const metadata: Metadata = {
-  title: "MediGuard Trust Network",
-  description: "Anti-counterfeit medicine trust infrastructure",
+  title: "MediProof — Verify Medicine Authenticity Instantly",
+  description:
+    "MediProof uses blockchain and unit-level QR codes to verify medicine authenticity across the supply chain. Scan any QR for a GREEN, AMBER, or RED trust verdict in seconds.",
 };
 
 export default function RootLayout({
@@ -27,7 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-zinc-950 text-zinc-50">
         <WalletProvider>
