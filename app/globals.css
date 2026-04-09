@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617;
-  --foreground: #e5e7eb;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --muted: #a1a1aa;
+  --muted-dim: #52525b;
+  --border: #27272a;
+  --border-subtle: #18181b;
+  --surface: #111113;
+  --surface-elevated: #18181b;
 }
 
 @theme inline {
@@ -15,7 +21,46 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-dm-sans), var(--font-geist-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+.font-display {
+  font-family: var(--font-playfair), Georgia, serif;
+}
+
+/* Fade-up entrance animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s ease forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+.delay-5 { animation-delay: 0.5s; }
+.delay-6 { animation-delay: 0.6s; }
+
+.opacity-0-init { opacity: 0; }
 
 .card {
   @apply rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-sm;
@@ -74,3 +119,48 @@ body {
 .table-head {
   @apply bg-zinc-950/80 text-[11px] uppercase tracking-wide text-zinc-500;
 }
+
+/* ── FAQ accordion smooth animation ────────────────────────── */
+
+/*
+ * Native <details> can't transition height in CSS.
+ * The grid-rows trick: wrap content in a grid container and animate
+ * grid-template-rows from 0fr → 1fr. The inner overflow:hidden div
+ * collapses to zero height without clipping during the transition.
+ */
+
+details.faq-item {
+  /* prevent the browser from doing the instant open/close itself */
+}
+
+/* The animated content wrapper inside each <details> */
+details.faq-item > .faq-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+details.faq-item[open] > .faq-body {
+  grid-template-rows: 1fr;
+}
+
+/* The actual content must be overflow:hidden for the trick to work */
+details.faq-item > .faq-body > .faq-body-inner {
+  overflow: hidden;
+}
+
+/* Smooth chevron rotation */
+details.faq-item > summary .faq-chevron {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s ease;
+}
+
+details.faq-item[open] > summary .faq-chevron {
+  transform: rotate(180deg);
+}
+
+/* Hover / open state background */
+details.faq-item > summary {
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
