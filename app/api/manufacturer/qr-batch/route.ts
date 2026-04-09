@@ -5,6 +5,13 @@ import { getActorWallet, jsonError, jsonOk } from "@/lib/server/http";
 import { requireRole } from "@/lib/server/roles";
 import { normalizeAddress } from "@/lib/server/crypto";
 
+type QrBatchUnit = {
+  unitId: string;
+  serialNumber: number;
+  secretReference: string;
+  checksum: string;
+};
+
 const querySchema = z.object({
   batchId: z
     .string()
@@ -15,7 +22,7 @@ const querySchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const wallet = getActorWallet(req);
-    await requireRole(wallet, ["MANUFACTURER", "ADMIN"]);
+    const role = await requireRole(wallet, ["MANUFACTURER", "ADMIN"]);
 
     const batchId = querySchema.parse({
       batchId: req.nextUrl.searchParams.get("batchId"),
@@ -38,14 +45,16 @@ export async function GET(req: NextRequest) {
     if (!batch) return jsonError("batch not found", 404);
 
     const manufacturer = normalizeAddress(wallet || "");
-    if (batch.manufacturer !== manufacturer)
+    if (role !== "ADMIN" && batch.manufacturer !== manufacturer)
       return jsonError("not your batch", 403);
+
+    const units: QrBatchUnit[] = batch.units;
 
     return jsonOk({
       batchId,
       medicineName: batch.medicineName,
       expiryDate: batch.expiryDate,
-      units: batch.units.map((u) => ({
+      units: units.map((u: QrBatchUnit) => ({
         unitId: u.unitId,
         serialNumber: u.serialNumber,
         secretReference: u.secretReference,

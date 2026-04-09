@@ -11,30 +11,34 @@ export async function GET(req: NextRequest) {
     const normalized = normalizeAddress(wallet || "");
 
     // Units confirmed received by this distributor
-    const received = await prisma.supplyEvent.findMany({
-      where: {
-        actorWallet: normalized,
-        eventType: "DISTRIBUTOR_RECEIVED",
-        receiverConfirmed: true,
-      },
-      select: { unitId: true },
-      distinct: ["unitId"],
-    });
+    const received: Array<{ unitId: string }> =
+      await prisma.supplyEvent.findMany({
+        where: {
+          actorWallet: normalized,
+          eventType: "DISTRIBUTOR_RECEIVED",
+          receiverConfirmed: true,
+        },
+        select: { unitId: true },
+        distinct: ["unitId"],
+      });
 
-    const unitIds = received.map((e) => e.unitId);
+    const unitIds = received.map((e: { unitId: string }) => e.unitId);
 
     // Exclude units that were later handed off (PHARMACY_RECEIVED or SOLD)
-    const dispatched = await prisma.supplyEvent.findMany({
-      where: {
-        unitId: { in: unitIds },
-        eventType: { in: ["PHARMACY_RECEIVED", "SOLD"] },
-      },
-      select: { unitId: true },
-      distinct: ["unitId"],
-    });
+    const dispatched: Array<{ unitId: string }> =
+      await prisma.supplyEvent.findMany({
+        where: {
+          unitId: { in: unitIds },
+          eventType: { in: ["PHARMACY_RECEIVED", "SOLD"] },
+        },
+        select: { unitId: true },
+        distinct: ["unitId"],
+      });
 
-    const dispatchedIds = new Set(dispatched.map((e) => e.unitId));
-    const heldIds = unitIds.filter((id) => !dispatchedIds.has(id));
+    const dispatchedIds = new Set(
+      dispatched.map((e: { unitId: string }) => e.unitId),
+    );
+    const heldIds = unitIds.filter((id: string) => !dispatchedIds.has(id));
 
     const units = await prisma.unit.findMany({
       where: {

@@ -21,17 +21,19 @@ export async function GET(req: NextRequest) {
     const normalized = normalizeAddress(wallet || "");
 
     // Units that had their last supply event at this pharmacy
-    const events = await prisma.supplyEvent.findMany({
-      where: {
-        actorWallet: normalized,
-        eventType: "PHARMACY_RECEIVED",
-        receiverConfirmed: true,
+    const events: Array<{ unitId: string }> = await prisma.supplyEvent.findMany(
+      {
+        where: {
+          actorWallet: normalized,
+          eventType: "PHARMACY_RECEIVED",
+          receiverConfirmed: true,
+        },
+        select: { unitId: true },
+        distinct: ["unitId"],
       },
-      select: { unitId: true },
-      distinct: ["unitId"],
-    });
+    );
 
-    const unitIds = events.map((e) => e.unitId);
+    const unitIds = events.map((e: { unitId: string }) => e.unitId);
 
     const units = await prisma.unit.findMany({
       where: {

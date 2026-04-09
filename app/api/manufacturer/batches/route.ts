@@ -16,6 +16,14 @@ import { BATCH_STATUS } from "@/lib/server/enums";
 import { getActorWallet, jsonError, jsonOk } from "@/lib/server/http";
 import { requireRole } from "@/lib/server/roles";
 
+type UnitSeed = {
+  unitId: string;
+  batchId: string;
+  serialNumber: number;
+  secretReference: string;
+  checksum: string;
+};
+
 const createBatchSchema = z.object({
   medicineName: z
     .string()
@@ -51,7 +59,7 @@ export async function GET(req: NextRequest) {
     });
 
     return jsonOk({
-      items: items.map((b) => ({
+      items: items.map((b: { manufactureDate: Date; expiryDate: Date }) => ({
         ...b,
         manufactureDate: b.manufactureDate.toISOString().slice(0, 10),
         expiryDate: b.expiryDate.toISOString().slice(0, 10),
@@ -112,26 +120,29 @@ export async function POST(req: NextRequest) {
     });
 
     // Build all units in memory first
-    const units = Array.from({ length: parsed.totalQuantity }, (_, idx) => {
-      const serialNumber = idx + 1;
-      const secret = randomSalt(8);
-      const unitSalt = randomSalt(8);
-      const unitId = buildUnitId(batchId, serialNumber, unitSalt);
-      return {
-        unitId,
-        batchId,
-        serialNumber,
-        secretReference: secret,
-        checksum: createQrChecksum(unitId, secret),
-      };
-    });
+    const units: UnitSeed[] = Array.from(
+      { length: parsed.totalQuantity },
+      (_, idx) => {
+        const serialNumber = idx + 1;
+        const secret = randomSalt(8);
+        const unitSalt = randomSalt(8);
+        const unitId = buildUnitId(batchId, serialNumber, unitSalt);
+        return {
+          unitId,
+          batchId,
+          serialNumber,
+          secretReference: secret,
+          checksum: createQrChecksum(unitId, secret),
+        };
+      },
+    );
 
     // Bulk DB insert
     await prisma.unit.createMany({ data: units });
 
     // Bulk supply event insert
     await prisma.supplyEvent.createMany({
-      data: units.map((u) => ({
+      data: units.map((u: UnitSeed) => ({
         unitId: u.unitId,
         eventType: "MANUFACTURED" as const,
         actorWallet: manufacturer,
@@ -147,7 +158,7 @@ export async function POST(req: NextRequest) {
       for (let i = 0; i < units.length; i += CHUNK) {
         const chunk = units.slice(i, i + CHUNK);
         await Promise.allSettled(
-          chunk.map((u) =>
+          chunk.map((u: UnitSeed) =>
             chainSerializeUnit(batchId, u.unitId, u.serialNumber),
           ),
         );
@@ -162,7 +173,7 @@ export async function POST(req: NextRequest) {
           expiryDate: batch.expiryDate.toISOString().slice(0, 10),
         },
         unitCount: units.length,
-        unitsPreview: units.slice(0, 3).map((u) => ({
+        unitsPreview: units.slice(0, 3).map((u: UnitSeed) => ({
           unitId: u.unitId,
           serialNumber: u.serialNumber,
           checksum: u.checksum,
@@ -179,7 +190,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const wallet = getActorWallet(req);
-    await requireRole(wallet, ["MANUFACTURER", "ADMIN"]);
+    const role = await requireRole(wallet, ["MANUFACTURER", "ADMIN"]);
     const manufacturer = normalizeAddress(wallet || "");
 
     const parsed = updateStatusSchema.parse(await req.json());
@@ -187,7 +198,7 @@ export async function PATCH(req: NextRequest) {
       where: { batchId: parsed.batchId },
     });
     if (!batch) return jsonError("batch not found", 404);
-    if (batch.manufacturer !== manufacturer)
+    if (role !== "ADMIN" && batch.manufacturer !== manufacturer)
       return jsonError("not your batch", 403);
 
     const updated = await prisma.batch.update({

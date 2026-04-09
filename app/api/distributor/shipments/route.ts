@@ -179,7 +179,7 @@ export async function PATCH(req: NextRequest) {
           ? "PHARMACY_RECEIVED"
           : "DISTRIBUTOR_RECEIVED";
 
-      const units = await prisma.unit.findMany({
+      const units: Array<{ unitId: string }> = await prisma.unit.findMany({
         where: {
           batchId: shipment.batchId,
           serialNumber: { gte: shipment.unitStart, lte: shipment.unitEnd },
@@ -197,7 +197,7 @@ export async function PATCH(req: NextRequest) {
           },
         }),
         prisma.supplyEvent.createMany({
-          data: units.map((u) => ({
+          data: units.map((u: { unitId: string }) => ({
             unitId: u.unitId,
             eventType,
             actorWallet: normalized,

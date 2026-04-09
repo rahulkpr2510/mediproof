@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     await requireRole(wallet, ["DISTRIBUTOR", "PHARMACY"]);
 
     const parsed = schema.parse(await req.json());
-    const units = await prisma.unit.findMany({
+    const units: Array<{ unitId: string }> = await prisma.unit.findMany({
       where: { batchId: parsed.batchId },
       select: { unitId: true },
     });
@@ -35,9 +35,11 @@ export async function POST(req: NextRequest) {
     const shuffled = [...units].sort(() => Math.random() - 0.5);
     const selected = shuffled
       .slice(0, parsed.sampleSize)
-      .map((unit) => unit.unitId);
+      .map((unit: { unitId: string }) => unit.unitId);
 
-    const validUnitIds = new Set(units.map((u) => u.unitId));
+    const validUnitIds = new Set(
+      units.map((u: { unitId: string }) => u.unitId),
+    );
     const failures = (parsed.failedUnitIds ?? []).filter((id) =>
       validUnitIds.has(id),
     );
