@@ -7,6 +7,7 @@ type Entry = {
   longResetAt: number;
   blockedUntil: number;
   violations: number;
+  violationsResetAt: number; // when violations counter decays
   lastSeenAt: number;
 };
 
@@ -117,6 +118,7 @@ export function enforceRateLimit(args: EnforceRateLimitArgs): RateLimitResult {
     longResetAt: now + longWindowMs,
     blockedUntil: 0,
     violations: 0,
+    violationsResetAt: now + longWindowMs,
     lastSeenAt: now,
   };
 
@@ -139,6 +141,12 @@ export function enforceRateLimit(args: EnforceRateLimitArgs): RateLimitResult {
   if (entry.longResetAt <= now) {
     entry.longCount = 0;
     entry.longResetAt = now + longWindowMs;
+    // Violation decay: if a full long window passed without triggering a block,
+    // give the client a clean slate so legitimate users aren't permanently penalised.
+    if (entry.blockedUntil <= now) {
+      entry.violations = 0;
+      entry.violationsResetAt = now + longWindowMs;
+    }
   }
 
   entry.shortCount += 1;
@@ -149,9 +157,12 @@ export function enforceRateLimit(args: EnforceRateLimitArgs): RateLimitResult {
 
   if (shortExceeded || longExceeded) {
     entry.violations += 1;
-    if (entry.violations >= 3) {
-      entry.blockedUntil = now + cooldownMs;
-    }
+    // Exponential cooldown: tier 1 → 15 min, tier 2 → 60 min, tier 3+ → 4 hours
+    const cooldownTier =
+      entry.violations === 1 ? cooldownMs          // 15 min
+      : entry.violations === 2 ? cooldownMs * 4    // 60 min
+      : cooldownMs * 16;                           // 4 hours
+    entry.blockedUntil = now + cooldownTier;
 
     const retryAt = Math.max(
       entry.shortResetAt,
