@@ -4,6 +4,29 @@ import { evaluateAnomalies } from "@/lib/server/anomaly";
 import { getMedicineInfoFromGemini } from "@/lib/server/medicine-info";
 import { ActorType, VerificationResult } from "@/lib/server/enums";
 
+type ShipmentSummary = {
+  shipmentId: string;
+  senderWallet: string;
+  receiverWallet: string;
+  status: string;
+  dispatchedAt: Date | null;
+  deliveredAt: Date | null;
+};
+
+type ColdChainLogSummary = {
+  shipmentId: string;
+  temperature: number;
+  timestamp: Date;
+  safe: boolean;
+};
+
+type SupplyEventSummary = {
+  eventType: string;
+  actorWallet: string;
+  timestamp: Date;
+  locationHash: string | null;
+};
+
 function sanitizeText(value: string, maxLen: number) {
   return value
     .replace(/[\u0000-\u001F\u007F]/g, "")
@@ -85,13 +108,21 @@ export async function verifyUnitByPayload(input: {
   }
 
   // Already sold guard
+  // PUBLIC actor scanning an already-sold unit is a strong resale fraud signal → RED.
+  // Supply-chain actor scanning it (e.g. audit) is informational → AMBER.
   if (unit.soldAt && unit.finalSales.length > 0) {
-    warnFlags.push("ALREADY_SOLD");
-    reasoning.push(
-      `Unit was already sold on ${unit.soldAt
-        .toISOString()
-        .slice(0, 10)}. Potential resale fraud.`,
-    );
+    const soldDateStr = unit.soldAt.toISOString().slice(0, 10);
+    if (input.actorType === "PUBLIC") {
+      criticalFlags.push("ALREADY_SOLD");
+      reasoning.push(
+        `Unit was already dispensed on ${soldDateStr}. A public scan after dispensing indicates a potential counterfeit clone in circulation.`,
+      );
+    } else {
+      warnFlags.push("ALREADY_SOLD");
+      reasoning.push(
+        `Unit was already sold on ${soldDateStr}. Flagged for audit — verify this is a legitimate post-sale inspection.`,
+      );
+    }
   }
 
   // Update scan nonce proof
@@ -137,16 +168,28 @@ export async function verifyUnitByPayload(input: {
     where: { batchId: unit.batchId },
     orderBy: { requestedAt: "asc" },
   });
+  const shipmentSummaries: ShipmentSummary[] = shipments;
   const coldChainLogs = await prisma.coldChainLog.findMany({
-    where: { shipmentId: { in: shipments.map((s) => s.shipmentId) } },
+    where: {
+      shipmentId: { in: shipmentSummaries.map((s) => s.shipmentId) },
+    },
     orderBy: { timestamp: "desc" },
   });
+  const coldChainLogSummaries: ColdChainLogSummary[] = coldChainLogs;
   const coldChainOk =
-    coldChainLogs.length === 0 || coldChainLogs.every((l) => l.safe);
-  if (!coldChainOk && verdict === "GREEN") verdict = "AMBER";
+    coldChainLogSummaries.length === 0 ||
+    coldChainLogSummaries.every((l) => l.safe);
+  if (!coldChainOk) {
+    const breachCount = coldChainLogSummaries.filter((l) => !l.safe).length;
+    reasoning.push(
+      `Cold-chain breach detected on ${breachCount} hop(s). Temperature exceeded the 2°C–8°C safe window. Medicine integrity may be compromised.`,
+    );
+    if (verdict === "GREEN") verdict = "AMBER";
+  }
 
   // Optional educational medicine info (server-side only, no API key exposure)
   const medicineInfo = await getMedicineInfoFromGemini(unit.batch.medicineName);
+  const timelineEvents: SupplyEventSummary[] = unit.supplyEvents;
 
   // Persist scan log
   await prisma.scanLog.create({
@@ -184,13 +227,13 @@ export async function verifyUnitByPayload(input: {
         reasoning.length > 0
           ? reasoning
           : ["No anomalies detected. Supply chain integrity confirmed."],
-      timeline: unit.supplyEvents.map((e) => ({
+      timeline: timelineEvents.map((e) => ({
         label: e.eventType,
         actor: e.actorWallet,
         timestamp: e.timestamp.toISOString(),
         locationHash: e.locationHash ?? undefined,
       })),
-      shipmentHistory: shipments.map((s) => ({
+      shipmentHistory: shipmentSummaries.map((s) => ({
         shipmentId: s.shipmentId,
         sender: s.senderWallet,
         receiver: s.receiverWallet,
@@ -200,11 +243,11 @@ export async function verifyUnitByPayload(input: {
       })),
       coldChainStatus: {
         ok: coldChainOk,
-        logCount: coldChainLogs.length,
-        lastTemperatureC: coldChainLogs[0]?.temperature,
-        lastTimestamp: coldChainLogs[0]?.timestamp.toISOString(),
+        logCount: coldChainLogSummaries.length,
+        lastTemperatureC: coldChainLogSummaries[0]?.temperature,
+        lastTimestamp: coldChainLogSummaries[0]?.timestamp.toISOString(),
         notes: coldChainOk
-          ? coldChainLogs.length === 0
+          ? coldChainLogSummaries.length === 0
             ? ["No cold-chain telemetry recorded for this shipment."]
             : ["All monitored hops remained within 2°C–8°C safe range."]
           : ["One or more cold-chain hops breached the 2°C–8°C safe window."],
