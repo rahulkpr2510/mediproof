@@ -40,10 +40,8 @@ export default function SignUpPage() {
               identityPreviewEditButton: "text-zinc-400 hover:text-zinc-100",
             },
           }}
-          routing="path"
-          path="/sign-up"
           signInUrl="/sign-in"
-          afterSignUpUrl="/onboarding"
+          forceRedirectUrl="/onboarding"
         />
       </div>
     </div>

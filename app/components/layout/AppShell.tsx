@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
 import { ConnectWalletButton } from "../wallet/ConnectWalletButton";
 import { useWallet } from "../wallet/WalletProvider";
 
@@ -80,15 +80,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Verify
             </Link>
-            <SignedOut>
+            <Show when="signed-out">
               <Link
                 href="/sign-in"
                 className="rounded-full px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
               >
                 Sign in
               </Link>
-            </SignedOut>
-            <SignedIn>
+            </Show>
+            <Show when="signed-in">
               <ConnectWalletButton />
               <UserButton
                 appearance={{
@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   },
                 }}
               />
-            </SignedIn>
+            </Show>
           </div>
         </div>
       </header>
