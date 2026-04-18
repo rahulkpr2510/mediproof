@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { VerificationForm } from "../../components/verification/VerificationForm";
+import { ScanOnlyVerification } from "../../components/verification/ScanOnlyVerification";
 import { VerificationSummary } from "../../components/verification/VerificationSummary";
 import { VerificationResult } from "../../lib/domain";
 
@@ -37,14 +37,12 @@ export default function VerifyPage() {
           Verify medicine authenticity
         </h1>
         <p className="max-w-2xl text-sm text-zinc-400">
-          Enter the unit ID from the QR code printed on the medicine pack. The
-          system checks blockchain state, supply chain history, cold-chain
-          integrity, and 6 anomaly rules to compute a trust verdict.
+          Scan the QR code on the medicine pack using your camera. The system checks blockchain state, supply chain history, cold-chain integrity, and anomaly detection to compute a trust verdict. For loose medicines, enter the 4-digit strip code for verification.
         </p>
       </section>
 
       <div className="page-grid">
-        <VerificationForm
+        <ScanOnlyVerification
           onLoading={() => setState({ status: "loading" })}
           onVerified={handleVerified}
         />
