@@ -7,7 +7,7 @@ datasource db {
   url       = env("DATABASE_URL")
 }
 
-
+// ── USER & AUTH ENUMS ─────────────────────────────────────────────────────────
 
 enum RoleType {
   NONE
@@ -15,6 +15,13 @@ enum RoleType {
   MANUFACTURER
   DISTRIBUTOR
   PHARMACY
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
 }
 
 enum BatchStatus {
@@ -65,6 +72,205 @@ enum SeverityLevel {
   INFO
   WARN
   CRITICAL
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+// ── USER MODEL (CLERK + WALLET) ───────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  clerkId       String     @unique
+  email         String     @unique
+  wallet        String?    @unique @db.VarChar(64)
+  role          RoleType   @default(NONE)
+  status        UserStatus @default(PENDING)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  manufacturer  Manufacturer?
+  distributor   Distributor?
+  pharmacy      Pharmacy?
+  reports       ManualReport[]
+
+  @@index([role])
+  @@index([status])
+}
+
+// ── ROLE-SPECIFIC PROFILES ────────────────────────────────────────────────────
+
+model Manufacturer {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  companyName   String
+  licenseNumber String
+  gstNumber     String
+  address       String
+  documents     Json     // URLs to uploaded files
+  verifiedBadge Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stock ManufacturerStock[]
+
+  @@index([licenseNumber])
+}
+
+model Distributor {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  companyName      String
+  licenseNumber    String
+  warehouseAddress String
+  documents        Json
+  verifiedBadge    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stock DistributorStock[]
+
+  @@index([licenseNumber])
+}
+
+model Pharmacy {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  pharmacyName  String
+  licenseNumber String
+  address       String
+  documents     Json
+  verifiedBadge Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stock PharmacyStock[]
+
+  @@index([licenseNumber])
+}
+
+// ── INVENTORY MODELS ──────────────────────────────────────────────────────────
+
+model ManufacturerStock {
+  id             String   @id @default(cuid())
+  manufacturerId String
+  batchId        String
+  quantity       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  manufacturer Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+
+  @@unique([manufacturerId, batchId])
+  @@index([batchId])
+}
+
+model DistributorStock {
+  id            String   @id @default(cuid())
+  distributorId String
+  batchId       String
+  quantity      Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  distributor Distributor @relation(fields: [distributorId], references: [id], onDelete: Cascade)
+
+  @@unique([distributorId, batchId])
+  @@index([batchId])
+}
+
+model PharmacyStock {
+  id         String   @id @default(cuid())
+  pharmacyId String
+  batchId    String
+  quantity   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacyId, batchId])
+  @@index([batchId])
+}
+
+// ── STRIP CODES FOR LOOSE MEDICINE ────────────────────────────────────────────
+
+model StripCode {
+  id        String   @id @default(cuid())
+  code      String   @db.VarChar(4)  // 4-digit code
+  unitId    String
+  batchId   String
+  stripNumber Int    // Which strip in the unit (1, 2, 3...)
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([unitId, stripNumber])
+  @@index([code])
+  @@index([batchId])
+}
+
+// ── MANUAL REPORTS ────────────────────────────────────────────────────────────
+
+model ManualReport {
+  id             String       @id @default(cuid())
+  reporterId     String?      // null if public reporter
+  entityType     RoleType     // MANUFACTURER, DISTRIBUTOR, or PHARMACY
+  entityId       String       // The reported entity's ID
+  entityName     String       // Cached name for display
+  description    String       @db.Text
+  reporterName   String?
+  reporterEmail  String?
+  reporterPhone  String?
+  status         ReportStatus @default(PENDING)
+  adminNotes     String?      @db.Text
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  reporter User? @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+
+  @@index([entityType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ── ORDERS ────────────────────────────────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(cuid())
+  buyerId         String      // User ID of buyer
+  buyerRole       RoleType
+  supplierId      String      // User ID of supplier
+  supplierRole    RoleType
+  batchId         String
+  medicineName    String
+  quantity        Int
+  isSpecialOrder  Boolean     @default(false)  // qty exceeds available
+  status          OrderStatus @default(PENDING)
+  rejectionReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([buyerId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SHIPPED
+  DELIVERED
+  CANCELLED
 }
 
 model RoleAssignment {

@@ -6,6 +6,9 @@ import { Batch, ManufacturerReputation, ColdChainLog } from "../../lib/domain";
 import { useWallet } from "../wallet/WalletProvider";
 import { QRExportModal } from "../qr/QRExportModal";
 import { IncomingShipments } from "./IncomingShipments";
+import { ProfileHeader } from "./ProfileHeader";
+import { DashboardTabs } from "./DashboardTabs";
+import { SalesChart } from "../charts/SalesChart";
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: "pill-green",
@@ -14,8 +17,18 @@ const STATUS_COLORS: Record<string, string> = {
   SUSPICIOUS: "pill-amber",
 };
 
+type Tab = "products" | "orders" | "inventory" | "analytics";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "products", label: "Products & Batches" },
+  { id: "orders", label: "Orders" },
+  { id: "inventory", label: "Inventory" },
+  { id: "analytics", label: "Analytics" },
+];
+
 export function ManufacturerOverview() {
   const { address, role } = useWallet();
+  const [activeTab, setActiveTab] = useState<Tab>("products");
   const [batches, setBatches] = useState<Batch[]>([]);
   const [reputation, setReputation] = useState<ManufacturerReputation | null>(
     null,
@@ -139,6 +152,9 @@ export function ManufacturerOverview() {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
+      {/* Profile Header */}
+      <ProfileHeader role="MANUFACTURER" />
+
       {/* Header */}
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
@@ -157,6 +173,25 @@ export function ManufacturerOverview() {
         )}
       </header>
 
+      {/* Dashboard Tabs */}
+      <DashboardTabs
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as Tab)}
+      />
+
+      {/* Analytics Tab */}
+      {activeTab === "analytics" && (
+        <SalesChart
+          apiEndpoint="/api/analytics/sales?role=MANUFACTURER"
+          title="Production & Sales Analytics"
+          walletAddress={address || undefined}
+        />
+      )}
+
+      {/* Products Tab (main content) */}
+      {activeTab === "products" && (
+        <>
       <div className="page-grid">
         {/* ── Create batch form ── */}
         <section className="card flex flex-col gap-3">
@@ -514,6 +549,67 @@ export function ManufacturerOverview() {
           walletAddress={address}
           onClose={() => setQrBatch(null)}
         />
+      )}
+        </>
+      )}
+
+      {/* Orders Tab */}
+      {activeTab === "orders" && (
+        <IncomingShipments
+          apiPath="/api/manufacturer/shipments"
+          patchPath="/api/distributor/shipments"
+          title="Incoming orders from distributors"
+        />
+      )}
+
+      {/* Inventory Tab */}
+      {activeTab === "inventory" && (
+        <section className="card flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-zinc-100">
+              Inventory Overview
+            </h2>
+            <p className="text-xs text-zinc-400">
+              Current stock levels across all batches.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-zinc-800">
+            <table className="min-w-full divide-y divide-zinc-800 text-sm">
+              <thead className="bg-zinc-900/80 text-[11px] uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Batch</th>
+                  <th className="px-4 py-3 text-left font-medium">Medicine</th>
+                  <th className="px-4 py-3 text-left font-medium">Total Units</th>
+                  <th className="px-4 py-3 text-left font-medium">Available</th>
+                  <th className="px-4 py-3 text-left font-medium">Shipped</th>
+                  <th className="px-4 py-3 text-left font-medium">Expiry</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50">
+                {batches.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-zinc-500 text-xs">
+                      No inventory data available
+                    </td>
+                  </tr>
+                ) : (
+                  batches.map((b) => (
+                    <tr key={b.batchId} className="text-xs">
+                      <td className="px-4 py-3 font-mono text-zinc-400">
+                        {b.batchId.slice(0, 12)}...
+                      </td>
+                      <td className="px-4 py-3 text-zinc-200">{b.medicineName}</td>
+                      <td className="px-4 py-3 text-zinc-300">{b.totalQuantity}</td>
+                      <td className="px-4 py-3 text-emerald-400">{b.totalQuantity}</td>
+                      <td className="px-4 py-3 text-zinc-500">0</td>
+                      <td className="px-4 py-3 text-zinc-400">{b.expiryDate}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   );

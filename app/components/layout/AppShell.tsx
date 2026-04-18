@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { ConnectWalletButton } from "../wallet/ConnectWalletButton";
 import { useWallet } from "../wallet/WalletProvider";
 
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </nav>
 
-          {/* Wallet + mobile verify shortcut */}
+          {/* Auth + Wallet */}
           <div className="flex items-center gap-2">
             <Link
               href="/verify"
@@ -79,7 +80,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Verify
             </Link>
-            <ConnectWalletButton />
+            <SignedOut>
+              <Link
+                href="/sign-in"
+                className="rounded-full px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+              >
+                Sign in
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <ConnectWalletButton />
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-8 w-8",
+                  },
+                }}
+              />
+            </SignedIn>
           </div>
         </div>
       </header>
@@ -106,7 +124,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Verify medicine
               </Link>
               <span className="text-zinc-800">·</span>
-              <span>Blockchain · Anomaly intelligence</span>
+              <Link href="/contact" className="hover:text-zinc-400 transition-colors">
+                Contact us
+              </Link>
+              <span className="text-zinc-800">·</span>
+              <Link href="/report" className="hover:text-zinc-400 transition-colors">
+                Report issue
+              </Link>
             </div>
           </div>
         </div>

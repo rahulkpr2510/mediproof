@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display, DM_Sans } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import "./globals.css";
 import { WalletProvider } from "./components/wallet/WalletProvider";
 import { AppShell } from "./components/layout/AppShell";
@@ -39,15 +41,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${dmSans.variable} h-full antialiased`}
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+        variables: {
+          colorPrimary: "#fafafa",
+          colorBackground: "#18181b",
+          colorInputBackground: "#27272a",
+          colorInputText: "#fafafa",
+        },
+      }}
     >
-      <body className="min-h-full bg-zinc-950 text-zinc-50">
-        <WalletProvider>
-          <AppShell>{children}</AppShell>
-        </WalletProvider>
-      </body>
-    </html>
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${dmSans.variable} h-full antialiased`}
+      >
+        <body className="min-h-full bg-zinc-950 text-zinc-50">
+          <WalletProvider>
+            <AppShell>{children}</AppShell>
+          </WalletProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
